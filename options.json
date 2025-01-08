@@ -1,31 +1,30 @@
 {
-    "header": {
-      "horizontal_line": true,
-      "lines": [
-        "C--- P--- DATE",
-        "INTERVIEWER, PARTICIPANT"
-      ],
-      "page_number_position": "top-right"
-    },
-    "footer": {
-      "horizontal_line": true
-    },
-    "table": {
-      "column_widths": [0.75, 1, 5.75],
-      "alignments": ["center", "right", "justify"]
-    },
-    "font": {
-      "name": "Times New Roman",
-      "size": 12
-    },
-    "margins": {
-      "top": 1,
-      "bottom": 1,
-      "left": 1,
-      "right": 1
-    },
-    "spacing": {
-      "between_sentences": 1
-    }
+  "header": {
+    "horizontal_line": true,
+    "lines": [
+      "[Participant ID (#---)] [Date of Interview]",
+      "[Interviewer Full Name], [Participant Full Name]"
+    ],
+    "page_number_position": "top-right"
+  },
+  "footer": {
+    "horizontal_line": true
+  },
+  "table": {
+    "column_widths": [0.75, 1, 5.75],
+    "alignments": ["center", "right", "justify"]
+  },
+  "font": {
+    "name": "Times New Roman",
+    "size": 12
+  },
+  "margins": {
+    "top": 1,
+    "bottom": 1,
+    "left": 1,
+    "right": 1
+  },
+  "spacing": {
+    "between_sentences": 1
   }
-  
+}

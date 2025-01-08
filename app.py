@@ -6,13 +6,15 @@ from docx.oxml import OxmlElement, ns
 from flask import Flask, request, jsonify, send_file, render_template
 import os
 import json
+import shutil  # For directory cleanup
 
 app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)  # Ensure uploads folder exists
+
 
 class TranscriptProcessor:
-    def __init__(self, input_vtt_path, options_path, save_intermediates=False):
+    def __init__(self, input_vtt_path, options_path, save_intermediates=True):
         self.input_vtt_path = input_vtt_path
         self.options_path = options_path
         self.save_intermediates = save_intermediates
@@ -23,7 +25,7 @@ class TranscriptProcessor:
 
     def load_options(self):
         # Load JSON configuration file
-        with open(self.options_path, 'r') as f:
+        with open(self.options_path, "r") as f:
             return json.load(f)
 
     def apply_formatting(self, doc):
@@ -87,7 +89,12 @@ class TranscriptProcessor:
     def transcript_to_word(self, input_path):
         doc = Document(input_path)
         line_index, timestamp, speaker, line = [], [], [], []
-        current_index, current_timestamp, current_speaker, current_line = None, None, None, []
+        current_index, current_timestamp, current_speaker, current_line = (
+            None,
+            None,
+            None,
+            [],
+        )
 
         for para in doc.paragraphs:
             text = para.text.strip()
@@ -112,7 +119,12 @@ class TranscriptProcessor:
             line.append(" ".join(current_line))
 
         df = pd.DataFrame(
-            {"Line Index": line_index, "Timestamp": timestamp, "Speaker": speaker, "Line": line}
+            {
+                "Line Index": line_index,
+                "Timestamp": timestamp,
+                "Speaker": speaker,
+                "Line": line,
+            }
         )
         output_doc = Document()
         table = output_doc.add_table(rows=0, cols=3)
@@ -138,7 +150,9 @@ class TranscriptProcessor:
         df["Timestamp"] = df["Timestamp"].apply(clean_timestamp)
         df["Speaker"] = df["Speaker"].apply(lambda x: x.split()[0])
         df_clean = df[df["Speaker"] != "R"]
-        df_clean["group"] = (df_clean["Speaker"] != df_clean["Speaker"].shift()).cumsum()
+        df_clean["group"] = (
+            df_clean["Speaker"] != df_clean["Speaker"].shift()
+        ).cumsum()
         df_grouped = (
             df_clean.groupby("group")
             .agg({"Timestamp": "first", "Speaker": "first", "Line": " ".join})
@@ -164,27 +178,44 @@ class TranscriptProcessor:
         self.merge_speakers_and_clean_timestamps(self.step1_path)
         return self.formatted_path
 
-@app.route('/')
-def home():
-    return render_template('index.html')
 
-@app.route('/process', methods=['POST'])
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+
+@app.route("/process", methods=["POST"])
 def process():
-    if 'vtt_file' not in request.files:
+    if "vtt_file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
 
-    vtt_file = request.files['vtt_file']
-    if vtt_file.filename == '':
+    vtt_file = request.files["vtt_file"]
+    if vtt_file.filename == "":
         return jsonify({"error": "No file selected"}), 400
 
     input_vtt_path = os.path.join(UPLOAD_FOLDER, vtt_file.filename)
     options_path = "options.json"
     vtt_file.save(input_vtt_path)
 
-    processor = TranscriptProcessor(input_vtt_path, options_path, save_intermediates=False)
+    processor = TranscriptProcessor(
+        input_vtt_path, options_path, save_intermediates=True
+    )
     output_path = processor.process_transcript()
 
-    return send_file(output_path, as_attachment=True)
+    # Send the file and clean up the uploads folder
+    response = send_file(output_path, as_attachment=True)
+
+    # Cleanup: Delete all files in uploads after sending the response
+    for filename in os.listdir(UPLOAD_FOLDER):
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)  # Delete the file
+        except Exception as e:
+            print(f"Error deleting file {file_path}: {e}")
+
+    return response
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=8000)
